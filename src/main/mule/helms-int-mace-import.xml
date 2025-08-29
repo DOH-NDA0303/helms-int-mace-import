@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<flow name="int-mace-exam-result-imports-helms-scheduler-flow" doc:id="fc6dac7b-1091-44f3-8c37-93926dce0c5c" >
+		<scheduler doc:name="Scheduler" doc:id="f3e6b8ce-7f01-40e4-951c-035f5c2174f6" >
+			<scheduling-strategy >
+				<cron expression="${scheduler.cronExpression}" timeZone="${scheduler.timeZone}" />
+			</scheduling-strategy>
+		</scheduler>
+		<set-variable value="#[correlationId default uuid()]" doc:name="uuid" doc:id="08a647a1-da9e-4888-b117-407da8756ac9" variableName="uuid" />
+		<http:request method="POST" doc:name="Log Sys Api" doc:id="87a5dba3-1359-4f7d-bfa9-0d5856b9bc78" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]" >
+			<http:body ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"applicationName": p('logger.applicationName'),
+	"durationInSeconds": (p('logger.durationInSeconds')) as Number,
+	"endTime": now(),
+	"logStep": "Start",
+	"Message": p('logger.startMessage'),
+	"resourceName": p('logger.resourceName'),
+	"resourceMethod": p('logger.resourceMethod'),
+	"source": p('logger.source'),
+	"startTime": now(),
+	"statusCode": p('logger.statusCode'),
+	"transactionId": uuid(),
+	"appName": p('logger.appName'),
+	"folderLocation": p('logger.LogFolderLocation'),
+	"toAddress": p('logger.toAddress'),
+	"messageType": p('logger.messageTypeLog')
+}]]]></http:body>
+			<http:headers ><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+ 	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type": "application/json"
+}]]]></http:headers>
+		</http:request>
+		<flow-ref doc:name="exam-result-imports-impl-subflow" doc:id="90d6b03a-6131-4bc1-b143-55cd519a9938" name="exam-result-imports-impl-subflow" />
+		<http:request method="POST" doc:name="End Log System API" doc:id="970fc46d-ea06-4c62-9c26-48efe49183c6" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]" >
+			<http:body ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"applicationName": p('logger.applicationName'),
+	"durationInSeconds": (p('logger.durationInSeconds')) as Number,
+	"endTime": now(),
+	"logStep": "End",
+	"Message": p('logger.endMessage'),
+	"resourceName": p('logger.resourceName'),
+	"resourceMethod": p('logger.resourceMethod'),
+	"source": p('logger.source'),
+	"startTime": now(),
+	"statusCode": p('logger.statusCode'),
+	"transactionId": uuid(),
+	"appName": p('logger.appName'),
+	"folderLocation": p('logger.LogFolderLocation'),
+	"toAddress": p('logger.toAddress'),
+	"messageType": p('logger.messageTypeLog')
+}]]]></http:body>
+			<http:headers ><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+ 	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type": "application/json"
+}]]]></http:headers>
+		</http:request>
+	</flow>
+</mule>

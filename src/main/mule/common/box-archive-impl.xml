@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sub-flow name="box-input-archive-subflow"
+		doc:id="e37e94d2-37a1-4142-8c91-aa8f860cd8d7">
+		<ee:transform doc:name="join records"
+			doc:id="4e15e2f5-a296-4230-a3e5-e91d294c579a">
+			<ee:message>
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+vars.fileContent joinBy "\r\n"]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="initialFileContent" ><![CDATA[%dw 2.0
+output application/csv quoteValues = false,header = false,separator = ",",escape = ""
+---
+{
+	"fileContent": payload.fileContent
+}
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Choice"
+			doc:id="9f9c15b8-d3e8-495d-8101-e256cb1f7b11">
+			<when expression="#[!isEmpty(payload)]">
+				<http:request method="POST" doc:name="Box Input Upload"
+					doc:id="2ed2cf63-baaf-4e5d-9927-2a76f1d6ce2f"
+					config-ref="HTTP_Req_config_BOX" path="#[Mule::p('box.path')]"
+					responseTimeout="300000">
+					<http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "action": p('box.upload.action'),
+  "applicationName": p('box.upload.applicationName'),
+  "fileContent": payload,
+  "sourceFileLocation": "",
+  "sourceFileName": "",
+  "targetFileLocation":  p('box.upload.targetInputFileLocation'),
+  "targetFileName":  vars.fileName default "" 
+}]]]></http:body>
+					<http:headers ><![CDATA[#[output application/json
+---
+{
+	"Client-ID" : p('api.client-id'),
+	"Client-Secret" : p('secure::api.client-secret')
+}]]]></http:headers>
+				</http:request>
+				<logger level="INFO" doc:name="Logger"
+					doc:id="0726bb81-640a-42d3-952e-943bcb1c8086" />
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Transform Message" doc:id="1ded9239-7983-462c-a3c0-0c388d21c00a">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output text/plain
+---
+write(vars.InitialFileContent, "application/csv", {"separator": ',', "header": false,"quoteHeader":false })
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<http:request method="POST" doc:name="Box Input Header Only Upload" doc:id="fb155e43-c492-468e-b41e-b95f6175d292" config-ref="HTTP_Req_config_BOX" path="#[Mule::p('box.path')]">
+					<http:body ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "action": p('box.upload.action'),
+  "applicationName": p('box.upload.applicationName'),
+  "fileContent": payload,
+  "sourceFileLocation": "",
+  "sourceFileName": "",
+  "targetFileLocation":  p('box.upload.targetInputFileLocation'),
+  "targetFileName":  vars.fileName default "" 
+}]]]></http:body>
+				</http:request>
+				<logger level="INFO" doc:name="Logger"
+					doc:id="1a9e5c43-7737-475e-ab01-0f0dcef4eba1"
+					message="No Input file data for archive in Box, only content headers" />
+			
+</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="box-error-output-archive-subflow"
+		doc:id="a1267052-a5d2-4e6d-b33c-7f464f4479a2">
+		<choice doc:name="Choice"
+			doc:id="8db2b9ad-6c92-4e0d-a881-1f7144f411cd">
+			<when expression="#[!isEmpty(payload)]">
+				<http:request method="POST" doc:name="Box Input Upload"
+					doc:id="1163e1ca-91e4-4f3b-af2b-a2330ece64e3"
+					config-ref="HTTP_Req_config_BOX" path="#[Mule::p('box.path')]"
+					responseTimeout="300000">
+					<http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "action": p('box.upload.action'),
+  "applicationName": p('box.upload.applicationName'),
+  "fileContent": vars.errorFile,
+  "sourceFileLocation": "",
+  "sourceFileName": "",
+  "targetFileLocation":  p('box.upload.targetFileLocation'),
+  "targetFileName":  vars.fileName default"" ++ ".Error"
+}]]]></http:body>
+					<http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-ID" : p('api.client-id'),
+	"Client-Secret" : p('secure::api.client-secret'),
+	"content-type" : "application/json"
+}]]]></http:headers>
+				</http:request>
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="Logger"
+					doc:id="8c2cffd2-fc12-419b-b5db-21522f3aa06a"
+					message="No Input file data for archive in Box" />
+			</otherwise>
+		</choice>
+	</sub-flow>
+</mule>

@@ -1,0 +1,106 @@
+###### System API #####################
+api:
+ client-id: "2bf58bc761464b54a3228c6802c7bafb"
+
+###### Box Sys Api #######
+box:
+  host: "helms-box-framework-preprod.usg-w1.gov.cloudhub.io"
+  port: "443"
+  path: "/api/files"
+  timeout: "30000"
+  clientId: "fqqruwzsw705w93gunq08pjr5eaik8n0"
+  entityId: "1255234972"
+  keyAlias: "helms-de-jwt-preprod"
+  connectionTimeout: "1800"
+  reconnectionFrequency: "2000"
+  reconnectionAttempts: "3"  
+  upload:
+    action: "upload"
+    applicationGroup: "helms-int-nac-orba-exam-import"
+    applicationName: "helms-int-nac-orba-exam-import"
+    sourceFileLocation: ""
+    sourceFileName: ""
+    targetFileLocation: "306328597571"
+    targetFileName: ""
+    targetInputFileLocation: "306327980831"
+
+
+
+#####SFTP Sys Api ########
+mft:
+  host: "helms-mft-framework-preprod.usg-w1.gov.cloudhub.io"
+  port: "443"
+  path: "/api/files"
+  timeout: "30000"
+  username: "dohT-HELMS-DataExchange-1"
+  reconnectionFrequency: "2000"
+  reconnectionAttempts: "3"
+  connectionTimeout: "1800"  
+  identityFile: ""  
+  upload: 
+    action: "upload"
+    applicationGroup: "hsqa"
+    applicationName: "sftp"
+    sourceFileName: ""
+    sourceFileLocation: "/MACE/FROMMACE"
+    targetFileLocation: "/MACE/TOMACE"
+    targetErrorFileLocation: "/MACE/Error"
+    targetFileName: "" 
+  delete:
+    action: "delete"
+    applicationGroup: "hsqa"
+    applicationName: "sftp"
+  get: 
+    action: "get"
+    applicationGroup: "hsqa"
+    applicationName: "sftp"
+    sourceFileLocation: "/MACE/FROMMACE"
+    sourceFileName: "*"
+
+###### Logger System API #####################
+
+logger:
+  host: "helms-log-framework-preprod.usg-w1.gov.cloudhub.io"
+  port: "443"
+  path: "/api/logger"
+  timeout: "30000"
+  applicationName: "helms-int-nac-orba-exam-import"
+  durationInSeconds: "256"
+  logStep: "Message"
+  startMessage: "NAC ORBA Exam Imports Application Started to fetch data from sftp"
+  endMessage: "NAC ORBA Exam Imports Application Ended"
+  resourceName: "query"
+  resourceMethod: "POST"
+  email: "Email"
+  source: "NAC ORBA Exam"
+  statusCode: "SUCCESS"
+  transactionId: "unique id for each transaction"
+  appName: "469: An error has occurred in the NAC ORBA Exam Imports"
+  LogFolderLocation: "306328030978"
+  messageTypeLog: "Box"
+  messageTypeEmail: "Email"
+  emailBodyMessage: "Please check error file in MFT NACORBAExam/ErrorFilesFromDOH."
+  toAddress: "Chris.Lenzi@doh.wa.gov"
+  infoMessage:
+    toAddress: "Chris.Lenzi@doh.wa.gov"
+  
+###### Salesforce System API #####################
+
+salesforce:
+  host: "helms-salesforce-credentials-preprod.usg-w1.gov.cloudhub.io"
+  port: "443"
+  createpath: "/api/create"
+  upsertpath: "/api/upsert"
+  deletepath: "/api/delete"
+  querypath: "/api/query"
+  timeout: "60000"
+
+#######cron job details ##############################################
+
+scheduler:
+  cronExpression: "0 45 21 ? * MON-FRI *"
+  timeZone: "PST"
+  
+#Response Timeout
+response:
+  timeout: "120000"

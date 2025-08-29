@@ -1,0 +1,11 @@
+###### System API #####################
+api:
+ client-secret: "![eYvyaQEeK91UDMoIwYVMT1eRetyL2d83h4zwHl+3krQKtCuqzRszeA==]"
+
+################# Mule Configuration File ###################
+mule:
+  anypoint.platform.client_secret: "![45LDd3CXikxbyS7ZxGXjkVFebMovs+PLepJcQbLYcPCzgt1NEPFWvg==]"
+ 
+https:
+  keyPassword: "![6IXJNkI7uZETvsNRhdnGfw==]"
+  jksStorePassword: "![6IXJNkI7uZETvsNRhdnGfw==]" 

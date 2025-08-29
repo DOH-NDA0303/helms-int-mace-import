@@ -1,0 +1,617 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os"
+    xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+    xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+    xmlns:http="http://www.mulesoft.org/schema/mule/http"
+    xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    xmlns="http://www.mulesoft.org/schema/mule/core"
+    xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:email="http://www.mulesoft.org/schema/mule/email" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+
+    <sub-flow name="exam-result-imports-impl-subflow" doc:id="7d7c071f-f632-4cb6-84cb-8fd058773b72">
+        <http:request method="POST" doc:name="SFTP List" doc:id="9cfe90bb-121b-4d2a-a057-552cab14b2ef"
+            path="#[Mule::p('mft.path')]" responseTimeout="300000" config-ref="HTTP_Req_config_MFT">
+            <http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "action": "list",
+  "applicationGroup": Mule::p('mft.get.applicationGroup'),
+  "applicationName": Mule::p('mft.get.applicationName'),
+  "fileContent": "",
+  "sourceFileLocation": Mule::p('mft.get.sourceFileLocation'),
+  "sourceFileName": Mule::p('mft.get.sourceFileName'),
+  "targetFileLocation": Mule::p('mft.upload.targetFileLocation'),
+  "targetFileName": Mule::p('mft.upload.targetFileName')
+}]]]></http:body>
+            <http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+ 	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type": "application/json"
+}]]]></http:headers>
+        </http:request>
+        <ee:transform doc:name="File Names" doc:id="a95aa824-5cb5-40b5-9794-bdd0da16cafc">
+            <ee:message>
+                <ee:set-payload resource="dwls/fileContent.dwl" />
+            </ee:message>
+        </ee:transform>
+        <choice doc:name="Choice" doc:id="30d7e983-219d-47ef-997e-8550b9a0bc6e">
+            <when expression="#[!isEmpty(payload)]">
+                <foreach doc:name="For Each file" doc:id="9dd91549-9e8e-4c3f-bbdd-85f896e9456f"
+                    collection="#[payload]">
+                    <try doc:name="Try" doc:id="c826b7bc-6c9e-4628-8a85-2b21b69c2893">
+                        <set-variable value='#[payload]' doc:name="fileName"
+                            doc:id="f193c1ba-a5bd-417a-ae1a-d0380a33a5b7" variableName="fileName" />
+						<http:request method="POST" doc:name="SFTP read"
+                            doc:id="90f46cdb-ac4b-4f11-97e0-6fa18c5aeb29"
+                            path="#[Mule::p('mft.path')]"
+                            responseTimeout="300000" outputMimeType="application/json" config-ref="HTTP_Req_config_MFT">
+                            <http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "action": "get",
+  "applicationGroup": Mule::p('mft.get.applicationGroup'),
+  "applicationName": Mule::p('mft.get.applicationName'),
+  "fileContent": "",
+  "sourceFileLocation": Mule::p('mft.get.sourceFileLocation'),
+  "sourceFileName": vars.fileName,
+  "targetFileLocation": Mule::p('mft.upload.targetFileLocation'),
+  "targetFileName": Mule::p('mft.upload.targetFileName')
+}]]]></http:body>
+                            <http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+ 	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type": "application/json"
+}]]]></http:headers>
+                        </http:request>
+                        <choice doc:name="Choice" doc:id="47fe50cf-024d-4c16-8293-cf8bb944744a">
+                            <when expression="#[!isEmpty(payload.fileContent)]">
+                                <ee:transform doc:name="initialPayload" doc:id="fbff5968-99d2-4fb6-b5bf-d0f7dc978d04">
+									<ee:message/>
+									<ee:variables>
+										<ee:set-variable resource="dwls/initialPayload2.dwl" variableName="initialPayload" />
+									</ee:variables>
+								</ee:transform>
+								<ee:transform doc:name="Transform Message" doc:id="a74c4721-49b9-49a8-925e-e13c698257c3">
+									<ee:message>
+										<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+vars.initialPayload]]></ee:set-payload>
+									</ee:message>
+								</ee:transform>
+								<flow-ref doc:name="exam-result-salesforce-implementation-subflow"
+                                    doc:id="4888f4e2-f223-45a5-868c-9ebeb06d0bfd"
+                                    name="exam-result-salesforce-implementation-subflow" />
+                                <flow-ref doc:name="box-input-archive-subflow"
+                                    doc:id="1a31bd45-2d6a-44cb-a75a-2459c67bf4ba"
+                                    name="box-input-archive-subflow" />
+                                <http:request method="POST" doc:name="SFTP Delete"
+                                    doc:id="2f4b0b53-4e6f-4d23-bf4c-931d5e043d53"
+                                    path="#[Mule::p('mft.path')]" config-ref="HTTP_Req_config_MFT">
+                                    <http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "action": p('mft.delete.action'),
+  "applicationGroup": p('mft.delete.applicationGroup'),
+  "applicationName": p('mft.delete.applicationName'),
+  "fileContent": "",
+  "sourceFileLocation": Mule::p('mft.get.sourceFileLocation'),
+  "sourceFileName": vars.fileName,
+  "targetFileLocation":  Mule::p('mft.upload.targetFileLocation'),
+  "targetFileName": vars.fileName
+}]]]></http:body>
+                                    <http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+ 	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type": "application/json"
+}]]]></http:headers>
+                                </http:request>
+								<logger level="INFO" doc:name="Logger"
+                                    doc:id="f69f0196-e1d8-4b20-bdef-c0e610e5ff4a"
+                                    message="File #[vars.fileName] processed and deleted successfully." />
+                                <flow-ref doc:name="successful-record-notification-subflow" doc:id="2030c58f-280a-41c3-8e31-60ddbb9cf6aa" name="successful-record-notification-subflow"/>
+                            </when>
+                            <otherwise>
+                                <logger level="INFO" doc:name="Logger" doc:id="0d0aac34-4537-427f-ad67-2ceaae9493c6"
+                                    message="File data for #[vars.fileName] is empty." />
+                            </otherwise>
+                        </choice>
+                        <error-handler>
+                            <on-error-continue enableNotifications="true" logException="true"
+                                doc:name="On Error Continue" doc:id="b88f60ad-ddb8-44ba-9545-e87ddfb1ca0c"
+                                type="ANY">
+                                <flow-ref doc:name="error-notification"
+                                    doc:id="83bc56d1-0737-4bec-8036-6df17b9ca5d5"
+                                    name="error-notification" />
+                                <logger level="ERROR" doc:name="Logger" doc:id="b4982ccf-b561-4de6-9255-9cee56575fdd" message="Error processing file #[vars.fileName]: #[error.description]"/>
+                            </on-error-continue>
+                        </error-handler>
+                    </try>
+                </foreach>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Logger" doc:id="6fed5111-9aab-402a-b06f-d4a9520f1edd"
+                    message="No file available to process for exam results." />
+                <raise-error doc:name="Raise error" doc:id="efcc338f-b19b-4375-8ba4-68a179ef88fd"
+                    type="NOFILE:EXIST" description="No file exist on input folder for exam result" />
+            </otherwise>
+        </choice>
+        <logger level="INFO" doc:name="Logger" doc:id="ec3a343b-6a84-4f22-8bde-19c30544cfa4"
+            message="Finished processing exam result import files."/>
+    </sub-flow>
+
+    <sub-flow name="exam-result-salesforce-implementation-subflow" doc:id="e6013d08-8024-4780-a893-23a1889b1a29">
+        <logger level="INFO" doc:name="Logger" doc:id="c9ac6d5b-0f6e-4428-bfce-a4b7f55eafe6" message="Starting Salesforce implementation for exam result record."/>
+        
+        <ee:transform doc:name="Validations and Data Prep" doc:id="9e89cfbd-f023-40ea-afc3-cd61016b1694">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="dob" ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ((item, index) -> {
+  BirthDate: item.BirthDate as Date {format: "yyyyMMdd"} as String {format: "yyyy-MM-dd"}
+})]]></ee:set-variable>
+                <ee:set-variable variableName="credentialNumber" ><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+---
+payload map ((item, index) -> {
+    "NAECredential": "NCME.ME." ++ (substringAfter(item.NAECode,'ME') default "")
+})]]></ee:set-variable>
+				<ee:set-variable variableName="examDate" ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ((item, index) -> {
+  examDate: item.TestDate as Date {format: "yyyyMMdd"} as String {format: "yyyy-MM-dd"}
+})]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <ee:transform doc:name="SF Query for Credential Lookup" doc:id="b1f53564-ac02-4439-8de1-0c520074ddb0">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="sfQuery" ><![CDATA[%dw 2.0
+output application/java
+---
+"SELECT ID,
+    Account__c,
+    Credential__r.Id,
+    Credential__r.Name,
+    VerificationStatus,
+Name_of_Exam__c,
+    Credential__c,
+ExaminationDate,
+    Credential__r.Credential_Number__r.Name,
+    Credential__r.Last_Date_of_Contact__c,
+    Account__r.PersonBirthdate, 
+    Notes_Comments__c
+FROM 
+    PersonExamination
+WHERE 
+    Credential__r.Credential_Number__r.Name = '" ++ (vars.credentialNumber[0].NAECredential splitBy '.')[2] ++ "' AND Account__r.PersonBirthdate = " ++ vars.dob[0].BirthDate ++ 
+" AND (VerificationStatus =  'Pending')
+  AND (Credential__r.Status = 'Pending') LIMIT 100"]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="0ebb1b32-d109-4756-a6e6-a539c70318e1"
+            message="SF Query for Credential lookup: #[vars.sfQuery]" />
+        <http:request method="POST" doc:name="Salesforce Query Sapi"
+            doc:id="eefad0ca-3dd4-44bf-9eb0-68c524a4a1fe" path="#[Mule::p('salesforce.querypath')]" responseTimeout="300000"
+            target="sfQueryResponse" config-ref="HTTP_Req_config_SFDC">
+            <http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"query": vars.sfQuery
+}]]]></http:body>
+            <http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+ 	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type": "application/json"
+}]]]></http:headers>
+        </http:request>
+        <ee:transform doc:name="SF Credential LookUp Response" doc:id="b11ec29b-f368-4c5d-9d72-4e8102206b90">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="sfQueryResponse" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfQueryResponse map ((item, index) -> {
+    "Id": item.Id,
+    "CredentialId": item.Credential__r.Id,
+    "status": item.VerificationStatus,
+    "name": item.Credential__r.Name,
+    "examDate": item.ExaminationDate,
+    "examName": item.Name_of_Exam__c
+    //"LastDateOfContact_SF": item.Credential__r.Last_Date_Of_Contact__c,
+} ++ (vars.originalRecord default {}) )]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="9852f6b2-3d19-422e-bd6e-47ddae68f28a"
+            message="Credential lookup response: #[vars.sfQueryResponse]" />
+
+        <choice doc:name="Matching Record Check" doc:id="aefa6f8c-63fa-4a72-bbe6-5437de3fc6cc">
+            <when expression="#[!isEmpty(vars.sfQueryResponse)]">
+				<foreach doc:name="For Each Credential Result" doc:id="f68c14fa-efc2-422f-ac59-4471effe8970" collection="#[vars.sfQueryResponse]" >
+					<logger level="INFO" doc:name="Logger" doc:id="19c9f84d-0021-4b26-8907-ed03f442ce89" message="Before validation for exam result update." />
+					<ee:transform doc:name="Validations for Update" doc:id="2ec414ab-a177-4fc8-98bb-d332399746f2" >
+						<ee:message />
+						<ee:variables >
+							<ee:set-variable variableName="status" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.status]]></ee:set-variable>
+							<ee:set-variable variableName="credential" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.CredentialId]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					<choice doc:name="Validation Check for Credential, Status, Exam &amp; Title" doc:id="e140f437-6f2a-45f9-aeb2-2a32b11ef428" >
+						<when expression="#[!isEmpty(vars.credential) and (vars.status =='Pending')]" >
+							<ee:transform doc:name="Payload for Update" doc:id="2527b714-cee8-4d4a-836b-72a7ace91ca1" >
+								<ee:message />
+								<ee:variables >
+									<ee:set-variable variableName="SFExamResultRequest" ><![CDATA[%dw 2.0
+output application/json
+---
+[{
+	"Id": payload.Id,
+	"VerificationStatus": if(vars.initialPayload[0].PassFail_GeneralPortion == 'P') "Pass" else if(vars.initialPayload[0].PassFail_GeneralPortion == 'F') "Fail" else "No Show",
+	//"ExaminationDate": vars.ExamDate[0].examDate as Date {format: "yyyy-MM-dd"} at "UTC") as DateTime {format: "yyyy-MM-dd'T'00:00:00.000'Z'"},
+	"Notes_Comments__c": now() as Date as String ++ ' ' ++ '-' ++ ' ' ++ "Exam Result added by AutoUpdate process",
+	"Credential__c": vars.credential
+	
+}]]]></ee:set-variable>
+								</ee:variables>
+							</ee:transform>
+							<logger level="INFO" doc:name="Logger" doc:id="6ceee336-8881-4cb5-b77c-afb9222eb816" message="SF update request payload: #[vars.SFExamResultRequest]" />
+							<http:request method="POST" doc:name="Sf Exam result update to PE" doc:id="a2eff8e6-e7a0-40e9-b23e-a40d7220ff82" config-ref="HTTP_Req_config_SFDC" path="#[Mule::p('salesforce.upsertpath')]" responseTimeout="300000" target="SFExamResultResponse" >
+								<http:body ><![CDATA[#[%dw 2.0
+output application/json
+---
+vars.SFExamResultRequest]]]></http:body>
+								<http:headers ><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+ 	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type" : "application/json",
+	"object": "PersonExamination",
+	"externalID": "Id" 
+}]]]></http:headers>
+								<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"applicationName": "int-prometric-exams-import",
+	"object": "PersonExamination"
+}]]]></http:query-params>
+							</http:request>
+							<logger level="INFO" doc:name="Logger1" doc:id="8fe3e477-9faf-4887-ade3-409cc687bd77" message="Exam result was updated: #[vars.SFExamResultResponse]" />
+							<choice doc:name="If validation not matched/ status fail or no show" doc:id="8bcab992-bd1c-4edf-bda7-2c540cb8bb1d" >
+								<when expression="#[vars.SFExamResultRequest[0].VerificationStatus == 'Pass']" >
+									<logger level="INFO" doc:name="Logger" doc:id="29995331-2a5c-41be-8ab8-02248700e3ca" message="Status is PASS updated to SF, not creating exception log." />
+								</when>
+								<otherwise >
+									<ee:transform doc:name="SF Query to Get Count of failed data in PE" doc:id="3ec758db-8ad2-43b4-adc2-9f76b725ccc2" >
+										<ee:message />
+										<ee:variables >
+											<ee:set-variable variableName="sfFailCountQuery" ><![CDATA[%dw 2.0
+output application/json
+---
+"SELECT COUNT(Id) FROM PersonExamination " ++
+"WHERE (VerificationStatus = 'Fail' OR VerificationStatus = 'No Show') " ++
+"AND Credential__r.Name = '" ++ (vars.credentialNumber[0].NAECredential as String default '') ++ "' "]]></ee:set-variable>
+										</ee:variables>
+									</ee:transform>
+									<logger level="INFO" doc:name="Logger" doc:id="738dfa15-a6df-4f35-bd3d-e4799c9d5130" message="SF Query to Get Count of failed data in PE: #[vars.sfFailCountQuery]" />
+									<http:request method="POST" doc:name="Salesforce Query Sapi (Count)" doc:id="e17370d2-3778-42dc-8417-0d09c465fd16" config-ref="HTTP_Req_config_SFDC" path="#[Mule::p('salesforce.querypath')]" responseTimeout="300000" target="sfFailCountQueryResponse" >
+										<http:body ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"query": vars.sfFailCountQuery
+}]]]></http:body>
+										<http:headers ><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type": "application/json"
+}]]]></http:headers>
+									</http:request>
+									<logger level="INFO" doc:name="Logger1" doc:id="f1b00d78-7309-4c02-a3b6-38af1466e517" message="Count of authorized records for fail/no show: #[vars.sfFailCountQueryResponse.expr0]" />
+									<ee:transform doc:name="New Authorisation for failed/No Show Payload" doc:id="913cc1a3-daa7-4569-8bd3-3fedf736a4ad" >
+										<ee:message />
+										<ee:variables >
+											<ee:set-variable variableName="sfFailRequest" ><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+---
+if (vars.sfFailCountQueryResponse[0].expr0 < 4) [{
+	"Name_of_Exam__c": payload.examName,
+	"VerificationStatus": "Pending",
+	"Credential__c": vars.credential,
+	//"ExaminationDate": vars.examDate[0].examDate
+}]
+else []
+]]></ee:set-variable>
+										</ee:variables>
+									</ee:transform>
+									<choice doc:name="Choice" doc:id="d901d573-1ea8-40c4-80e6-d981b0bd800a" >
+										<when expression="#[!isEmpty(vars.sfFailRequest)]" >
+											<logger level="INFO" doc:name="Logger" doc:id="c3359773-d5df-4a8c-bed4-7f1634b992b1" message="New failed exam result request for creation: #[payload]" />
+											<http:request method="POST" doc:name="Sf Exam Result Create" doc:id="ada36347-9cf0-4466-b8ef-eba4a4093e9e" config-ref="HTTP_Req_config_SFDC" path="#[Mule::p('salesforce.createpath')]" responseTimeout="300000" target="SFFailCreateResponse" >
+												<http:body ><![CDATA[#[%dw 2.0
+output application/json
+---
+vars.sfFailRequest]]]></http:body>
+												<http:headers ><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type" : "application/json",
+	"object": "PersonExamination",
+	"externalID": "External_ID__c"
+}]]]></http:headers>
+												<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"applicationName": "int-prometric-exams-import",
+	"object": "PersonExamination"
+}]]]></http:query-params>
+											</http:request>
+										</when>
+										<otherwise >
+											<logger level="INFO" doc:name="Logger" doc:id="848fc80c-c6b3-4859-952c-1cfaec7fd141" message="Count of authorized records: #[vars.sfFailCountQueryResponse.expr0], hence not creating any new, need manual intervention (Max attempts reached)." />
+											<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;"Max attempts reached for the exam."]' doc:name="validationErrorMessage" doc:id="e4aa64a5-238d-42a1-834c-a05cc8caa90b" variableName="validationErrorMessage" />
+											<flow-ref doc:name="exception-impl-subFlow" doc:id="7f4609f0-c407-42b2-a5ec-11ccf96782b6" name="exception-impl-subFlow" />
+											<http:request method="POST" doc:name="Send Email" doc:id="c52b3e46-6010-454f-a610-42f344f5cc90" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]">
+										<http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "applicationName": p('logger.applicationName'),
+  "durationInSeconds": (p('logger.durationInSeconds')) as Number,
+  "endTime": now(),
+  "logStep":"Start",
+  "Message": vars.validationErrorMessage,
+  "resourceName": p('logger.resourceName'),
+  "resourceMethod": p('logger.resourceMethod'),
+  "source": p('logger.email'),
+  "startTime": "2022-07-29T01:41:00.647586Z",
+  "statusCode": p('logger.statusCode'),
+  "transactionId": uuid(),
+  "appName":p('logger.appName'),
+  "folderLocation": p('logger.LogFolderLocation'),
+  "toAddress": p('logger.toAddress'),
+  "messageType": p('logger.messageTypeEmail')
+  
+}]]]></http:body>
+										<http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-ID" : p('api.client-id'),
+	"Client-Secret" : p('secure::api.client-secret'),
+	"content-type" : "application/json"
+}]]]></http:headers>
+									</http:request>
+										</otherwise>
+									</choice>
+									<logger level="INFO" doc:name="Logger2" doc:id="5c2fd021-bbad-4b11-8d23-759702a5175a" message="New authorized Failed/No show Record was created: #[vars.SFFailCreateResponse]" />
+								</otherwise>
+							</choice>
+							<logger level="INFO" doc:name="Logger2" doc:id="2921ebee-f4df-4bf8-963b-d0f7a20e176b" message="Exam result processing completed for current record." />
+						</when>
+						<otherwise >
+							<ee:transform doc:name="Error Message for Validation" doc:id="7c32941e-d210-4375-bd76-0d23972e35a4" >
+								<ee:message />
+								<ee:variables >
+									<ee:set-variable variableName="credentialValidationMessage" ><![CDATA[
+%dw 2.0
+output application/json
+---
+if(vars.credentialValidation != true) "Invalid Credential Number"
+else "No Pending/Authorized HELMS Exam for matching Credential and DOB"
+]]></ee:set-variable>
+								</ee:variables>
+							</ee:transform>
+							<flow-ref doc:name="exception-impl-subFlow" doc:id="c07fa2a3-f3f1-489d-bb87-a555969d65ff" name="exception-impl-subFlow" />
+							<http:request method="POST" doc:name="Send Email" doc:id="839dadd4-3abb-45f7-92df-73b23f7beb97" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]">
+						<http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "applicationName": p('logger.applicationName'),
+  "durationInSeconds": (p('logger.durationInSeconds')) as Number,
+  "endTime": now(),
+  "logStep":"Start",
+  "Message": vars.credentialValidationMessage,
+  "resourceName": p('logger.resourceName'),
+  "resourceMethod": p('logger.resourceMethod'),
+  "source": p('logger.email'),
+  "startTime": "2022-07-29T01:41:00.647586Z",
+  "statusCode": p('logger.statusCode'),
+  "transactionId": uuid(),
+  "appName":p('logger.appName'),
+  "folderLocation": p('logger.LogFolderLocation'),
+  "toAddress": p('logger.toAddress'),
+  "messageType": p('logger.messageTypeEmail')
+  
+}]]]></http:body>
+						<http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-ID" : p('api.client-id'),
+	"Client-Secret" : p('secure::api.client-secret'),
+	"content-type" : "application/json"
+}]]]></http:headers>
+					</http:request>
+						</otherwise>
+					</choice>
+					<logger level="INFO" doc:name="Logger1" doc:id="8223ec36-1ed8-4fc5-a00d-66afdb99fddd" message="Finished processing one credential result." />
+				</foreach>
+
+            </when>
+            <otherwise>
+                <ee:transform doc:name="Error Message for Non-Match" doc:id="f9834291-323e-431a-b092-3137a5be76f8">
+                    <ee:message />
+                    <ee:variables>
+                        <ee:set-variable variableName="validationErrorMessage"><![CDATA[%dw 2.0
+output application/json
+---
+if (isEmpty(vars.sfQueryResponse)) "No Matching HELMS Credential or Pending Exam Found"
+else "Credential not in Pending/Authorized status"
+]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <flow-ref doc:name="exception-impl-subFlow" doc:id="3bc81e75-e73e-43ce-8004-81ffdde836cb" name="exception-impl-subFlow" />
+				<http:request method="POST" doc:name="Send Email" doc:id="2d1cc8c4-43fa-47b1-a0d4-7ad2aed78f77" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]" >
+					<http:body ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "applicationName": p('logger.applicationName'),
+  "durationInSeconds": (p('logger.durationInSeconds')) as Number,
+  "endTime": now(),
+  "logStep":"Start",
+  "Message": vars.validationErrorMessage,
+  "resourceName": p('logger.resourceName'),
+  "resourceMethod": p('logger.resourceMethod'),
+  "source": p('logger.email'),
+  "startTime": "2022-07-29T01:41:00.647586Z",
+  "statusCode": p('logger.statusCode'),
+  "transactionId": uuid(),
+  "appName":p('logger.appName'),
+  "folderLocation": p('logger.LogFolderLocation'),
+  "toAddress": p('logger.toAddress'),
+  "messageType": p('logger.messageTypeEmail')
+  
+}]]]></http:body>
+					<http:headers ><![CDATA[#[output application/json
+---
+{
+	"Client-ID" : p('api.client-id'),
+	"Client-Secret" : p('secure::api.client-secret'),
+	"content-type" : "application/json"
+}]]]></http:headers>
+				</http:request>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <sub-flow name="exception-impl-subFlow" doc:id="7a65d6dc-be10-4da5-9709-641e18226167">
+        <logger level="INFO" doc:name="Logger" doc:id="f676c563-4021-4bfc-b98b-63d06f8713bd"
+            message="Validation failed: ExamName: #[vars.examNameValidation], Credential: #[vars.credentialValidation], Title: #[vars.titleValidation], VerificationStatus: #[vars.verificationStatus]. Error: #[vars.validationErrorMessage]" />
+        <ee:transform doc:name="Exception Create Payload" doc:id="432415f2-a49a-484b-a3a6-bd6231dd0444">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+[{
+    "ClientId__c": vars.initialPayload[0].NAECode,
+    "LastName__c": vars.initialPayload[0].LastName,
+    "FirstName__c": vars.initialPayload[0].FirstName,
+    "MiddleName__c": vars.initialPayload[0].MiddleInitial,
+    "Address1__c": vars.initialPayload[0].Address1,
+    "Address2__c": vars.initialPayload[0].Address2,
+    "SiteCity__c": vars.initialPayload[0].City,
+    "SiteState__c": vars.initialPayload[0].State,
+    "SiteZip__c": vars.initialPayload[0].ZipCode,
+    // "SiteName__c" is commented out
+    "Exam__c": vars.examName,
+    // "Title__c" is commented out
+    "RawScore__c": vars.initialPayload[0].RawScore_GeneralPortion,
+    "ScaledScore__c": vars.initialPayload[0].SCALEDSCORE default 0 as Number,
+    "Exception_Type__c": vars.validationErrorMessage,
+    "FileName__c": vars.fileName,
+    "Record_Id__c" : "012BZ0000005fOrYAI",
+   // "Test_Date__c": if(!isEmpty(vars.initialPayload[0].TestDate)) (vars.initialPayload[0].TestDate as Date {format: "yyyyMMdd"}) else null,
+    //"Date_of_Birth__c": if(!isEmpty(vars.initialPayload[0].BirthDate)) (vars.initialPayload[0].BirthDate as Date {format: "yyyyMMdd"}) else null
+}]]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="0cbd4514-432c-4437-bc3c-517931c35845"
+            message="Exception create payload: #[payload]" />
+        <http:request method="POST" doc:name="Sf Exam Result Exception Create"
+            doc:id="cfcfaa39-001c-4bc2-a24a-b335388729df" path="#[Mule::p('salesforce.createpath')]" responseTimeout="300000"
+            target="SFExceptionResponse" config-ref="HTTP_Req_config_SFDC">
+            <http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+payload]]]></http:body>
+            <http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type" : "application/json",
+	"object": "Exception_Log__c",
+	"externalID": "External_ID__c"
+}]]]></http:headers>
+            <http:query-params><![CDATA[#[output application/java
+---
+{
+	"applicationName": "int-prometric-exams-import",
+	"object": "Exception_Log__c"
+}]]]></http:query-params>
+        </http:request>
+        <logger level="INFO" doc:name="Logger" doc:id="844e7a63-b3f6-46ff-a2f5-4eea5c45a0b8"
+            message="Exception response after SF create: #[vars.SFExceptionResponse]" />
+    </sub-flow>
+
+    <sub-flow name="successful-record-notification-subflow" doc:id="0b7ef220-c9f2-4f84-90fc-923d7f27676c">
+        <logger level="INFO" doc:name="Logger" doc:id="880b919f-078d-4840-a902-a5c5bf2b6f7c" message="Sending successful processing email for file #[vars.fileName]"/>
+		<http:request method="POST" doc:name="Send Email" doc:id="ad1d5579-def4-485d-99b4-9bb43a254ca8" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]">
+			<http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "applicationName": p('logger.applicationName'),
+  "durationInSeconds": (p('logger.durationInSeconds')) as Number,
+  "endTime": now(),
+  "logStep":"Start",
+  "Message": "Sucessfully processed the records",
+  "resourceName": p('logger.resourceName'),
+  "resourceMethod": p('logger.resourceMethod'),
+  "source": p('logger.email'),
+  "startTime": "2022-07-29T01:41:00.647586Z",
+  "statusCode": p('logger.statusCode'),
+  "transactionId": uuid(),
+  "appName":p('logger.appName'),
+  "folderLocation": p('logger.LogFolderLocation'),
+  "toAddress": p('logger.toAddress'),
+  "messageType": p('logger.messageTypeEmail')
+  
+}]]]></http:body>
+			<http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-ID" : p('api.client-id'),
+	"Client-Secret" : p('secure::api.client-secret'),
+	"content-type" : "application/json"
+}]]]></http:headers>
+		</http:request>
+    </sub-flow>
+
+    </mule>

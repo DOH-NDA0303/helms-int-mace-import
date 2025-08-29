@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<sub-flow name="error-notification"
+		doc:id="12b25133-d7a7-426a-a8dc-093a632deeb1">
+		<ee:transform doc:name="return error mapping" doc:id="9548e6c9-55d2-4669-b37f-11ae0eb111ec" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	applicationName: app.name,
+	resourceName: "files",
+	resourceMethod: "POST",
+	statusCode: error.errorType,
+	statusMessage: error.detailedDescription,
+	uuid: vars.uuid
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request method="POST" doc:name="Send Email"
+			doc:id="88f3737f-0842-4c82-b602-f2005abde807"
+			config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]">
+			<http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+  "applicationName": p('logger.applicationName'),
+  "durationInSeconds": (p('logger.durationInSeconds')) as Number,
+  "endTime": now(),
+  "logStep":"Start",
+  "Message": if(not isEmpty(error.detailedDescription)) error.detailedDescription else if(not isEmpty(vars.error.muleMessage.typedValue))vars.error.muleMessage.typedValue else "Generic Error",
+  "resourceName": p('logger.resourceName'),
+  "resourceMethod": p('logger.resourceMethod'),
+  "source": p('logger.email'),
+  "startTime": "2022-07-29T01:41:00.647586Z",
+  "statusCode": p('logger.statusCode'),
+  "transactionId": uuid(),
+  "appName":p('logger.appName'),
+  "folderLocation": p('logger.LogFolderLocation'),
+  "toAddress": p('logger.toAddress'),
+  "messageType": p('logger.messageTypeEmail')
+  
+}]]]></http:body>
+			<http:headers><![CDATA[#[output application/json
+---
+{
+	"Client-ID" : p('api.client-id'),
+	"Client-Secret" : p('secure::api.client-secret'),
+	"content-type" : "application/json"
+}]]]></http:headers>
+		</http:request>
+	</sub-flow>
+	<error-handler name="global-Errorhandling"
+		doc:id="d6f16cf4-7aad-41fd-a036-057e665703d6">
+
+		<on-error-propagate enableNotifications="true"
+			logException="true" doc:name="On Error Propagate"
+			doc:id="14982671-0fe1-4fb6-a768-aa23530f42f6" type="ANY">
+			<flow-ref doc:name="error-notification"
+				doc:id="b4ca8d0b-7808-4af6-b510-bd269e381db5"
+				name="error-notification" />
+		</on-error-propagate>
+	</error-handler>
+</mule>

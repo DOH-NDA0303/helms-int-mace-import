@@ -1,0 +1,112 @@
+###### System API #####################
+################# Mule Configuration File ###################
+mule:
+  key: ""
+  apiId: "123"
+  anypoint.platform.client_id: "106c5a522420407a9ed1b4cdd30e2060"
+  
+api:
+ client-id: "beacce5298524d1487385aa582b30a9c"
+
+###### Box Sys Api #######
+box:
+  host: "helms-box-framework-r3qapro.usg-w1.gov.cloudhub.io"
+  port: "443"
+  path: "/api/files"
+  timeout: "30000"
+  clientId: "jdjnjjp0rpxwliic2wg4kdn9k72gs4w4"
+  entityId: "1255234972"
+  keyAlias: "helms-de-jwt-preprod"
+  connectionTimeout: "1800"
+  reconnectionFrequency: "2000"
+  reconnectionAttempts: "3"  
+  upload:
+    action: "upload"
+    applicationGroup: "helms-int-nac-orba-exam-import"
+    applicationName: "helms-int-nac-orba-exam-import"
+    sourceFileLocation: ""
+    sourceFileName: ""
+    targetFileLocation: "322475826018"
+    targetFileName: ""
+    targetInputFileLocation: "322475503081"
+
+
+
+#####SFTP Sys Api ########
+mft:
+  host: "helms-mft-framework-r3qapro.usg-w1.gov.cloudhub.io"
+  port: "443"
+  path: "/api/files"
+  timeout: "30000"
+  username: "dohT-HELMS-DataExchange-1"
+  reconnectionFrequency: "2000"
+  reconnectionAttempts: "3"
+  connectionTimeout: "1800"  
+  identityFile: ""  
+  upload: 
+    action: "upload"
+    applicationGroup: "hsqa"
+    applicationName: "sftp"
+    sourceFileName: ""
+    sourceFileLocation: "/MACE/FROMMACE"
+    targetFileLocation: "/MACE/TOMACE"
+    targetErrorFileLocation: "/MACE/Error"
+    targetFileName: "" 
+  delete:
+    action: "delete"
+    applicationGroup: "hsqa"
+    applicationName: "sftp"
+  get: 
+    action: "get"
+    applicationGroup: "hsqa"
+    applicationName: "sftp"
+    sourceFileLocation: "/MACE/FROMMACE"
+    sourceFileName: "*"
+
+###### Logger System API #####################
+
+logger:
+  host: "helms-log-framework-r3qapro.usg-w1.gov.cloudhub.io"
+  port: "443"
+  path: "/api/logger"
+  timeout: "30000"
+  applicationName: "helms-int-nac-orba-exam-import"
+  durationInSeconds: "256"
+  logStep: "Message"
+  startMessage: "NAC ORBA Exam Imports Application Started to fetch data from sftp"
+  endMessage: "NAC ORBA Exam Imports Application Ended"
+  resourceName: "query"
+  resourceMethod: "POST"
+  email: "Email"
+  source: "NAC ORBA Exam"
+  statusCode: "SUCCESS"
+  transactionId: "unique id for each transaction"
+  appName: "469: An error has occurred in the NAC ORBA Exam Imports"
+  LogFolderLocation: "322475051254"
+  messageTypeLog: "Box"
+  messageTypeEmail: "Email"
+  emailBodyMessage: "Please check error file in MFT NACORBAExam/ErrorFilesFromDOH."
+  toAddress: "Chris.Lenzi@doh.wa.gov, nikhila.anaparthi@mtxb2b.com"
+  infoMessage:
+    toAddress: "Chris.Lenzi@doh.wa.gov"
+  
+###### Salesforce System API #####################
+
+salesforce:
+  host: "helms-salesforce-credentials-r3qa.usg-w1.gov.cloudhub.io"
+  port: "443"
+  createpath: "/api/create"
+  upsertpath: "/api/upsert"
+  deletepath: "/api/delete"
+  querypath: "/api/query"
+  timeout: "60000"
+
+#######cron job details ##############################################
+
+scheduler:
+  cronExpression: "0 45 21 ? * MON-FRI *"
+  timeZone: "PST"
+  
+#Response Timeout
+response:
+  timeout: "120000"

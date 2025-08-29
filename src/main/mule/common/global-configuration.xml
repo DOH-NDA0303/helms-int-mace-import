@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd 
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<http:request-config name="HTTP_Req_config_SFDC"
+		doc:name="HTTP Request configuration"
+		doc:id="1f3f77ed-0765-47b7-8386-10dab800b0b3"
+		doc:description="SFDC Sys Api&#10;">
+		<http:request-connection protocol="HTTPS"
+			host="#[Mule::p('salesforce.host')]"
+			port="#[Mule::p('salesforce.port')]">
+			<tls:context>
+				<tls:trust-store path="keystores/truststore.ts"
+					password="${secure::https.keyPassword}" type="jks" insecure="true" />
+			</tls:context>
+		</http:request-connection>
+	</http:request-config>
+	<http:request-config name="HTTP_Req_config_BOX"
+		doc:name="HTTP Request configuration"
+		doc:id="ce616401-8780-4315-b938-77ae23116efe"
+		doc:description="Box Sys Api">
+		<http:request-connection protocol="HTTPS"
+			host="#[Mule::p('box.host')]" port="#[Mule::p('box.port')]">
+			<tls:context>
+				<tls:trust-store path="keystores/truststore.ts"
+					password="${secure::https.keyPassword}" type="jks" insecure="true" />
+			</tls:context>
+		</http:request-connection>
+	</http:request-config>
+	<http:request-config name="HTTP_Req_config_LOGGER"
+		doc:name="HTTP Request configuration"
+		doc:id="378286da-04e1-45eb-8dfd-d8ba5af232d3"
+		doc:description="Logger Sys Api&#10;">
+		<http:request-connection protocol="HTTPS"
+			host="#[Mule::p('logger.host')]" port="#[Mule::p('logger.port')]">
+			<tls:context>
+				<tls:trust-store path="keystores/truststore.ts"
+					password="${secure::https.keyPassword}" type="jks" insecure="true" />
+			</tls:context>
+		</http:request-connection>
+	</http:request-config>
+	<configuration-properties
+		doc:name="Configuration properties"
+		doc:id="9825ef47-3109-406c-a8db-bb5e878d3076"
+		file="config/${mule.env}-configurations.yaml"
+		doc:description="Env Specific Properties" />
+	<secure-properties:config
+		name="Secure_Properties_Config" doc:name="Secure Properties Config"
+		doc:id="fb2fa158-623e-42f0-99a4-f4692fbf44ce"
+		file="config/secure/${mule.env}-configurations.yaml" key="${mule.key}"
+		doc:description="Secure Configuration&#10;">
+	</secure-properties:config>
+	<http:request-config name="HTTP_Req_config_MFT"
+		doc:name="HTTP Request configuration"
+		doc:id="f9461cbb-138f-4eed-bdbd-a1c2b5a607b1"
+		doc:description="SFTP Sys Api&#10;">
+		<http:request-connection protocol="HTTPS"
+			host="#[Mule::p('mft.host')]" port="#[Mule::p('mft.port')]">
+			<tls:context>
+				<tls:trust-store path="keystores/truststore.ts"
+					password="${secure::https.keyPassword}" type="jks" insecure="true" />
+			</tls:context>
+		</http:request-connection>
+	</http:request-config>
+	<global-property doc:name="Global Property"
+		doc:id="2cc0cbe4-ea5c-4914-915b-4d69d307f7c0" name="mule.env"
+		value="prod" />
+	<global-property doc:name="Global Property"
+		doc:id="e3d4a544-1041-4bb7-8bdf-840076222f93" name="mule.key"
+		value="*rgvL4&gt;8ZlTP$kk!5O13!I" />
+	<sftp:config name="SFTP_Config" doc:name="SFTP Config" doc:id="7451d1ce-be4b-419d-a489-e6f860e9fd7c" >
+		<sftp:connection workingDir="/WA" host="#[Mule::p('mft.host')]" username="#[Mule::p('mft.userName')]" kexHeader="false" port="#[Mule::p('mft.port')]" password="${secure::mft.password}"/>
+	</sftp:config>
+</mule>
