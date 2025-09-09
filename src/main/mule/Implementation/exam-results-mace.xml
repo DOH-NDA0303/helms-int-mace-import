@@ -542,7 +542,7 @@ output application/json
     "Exam__c": vars.examName,
     // "Title__c" is commented out
     "RawScore__c": vars.initialPayload[0].RawScore_GeneralPortion,
-    "ScaledScore__c": vars.initialPayload[0].SCALEDSCORE default 0 as Number,
+    //"ScaledScore__c": vars.initialPayload[0].SCALEDSCORE default 0 as Number,
     "Exception_Type__c": vars.validationErrorMessage,
     "FileName__c": vars.fileName,
     "Record_Id__c" : "012BZ0000005fOrYAI",

@@ -23,8 +23,7 @@ http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mu
 			host="#[Mule::p('salesforce.host')]"
 			port="#[Mule::p('salesforce.port')]">
 			<tls:context>
-				<tls:trust-store path="keystores/truststore.ts"
-					password="${secure::https.keyPassword}" type="jks" insecure="true" />
+				<tls:trust-store insecure="true"/>
 			</tls:context>
 		</http:request-connection>
 	</http:request-config>
@@ -35,8 +34,7 @@ http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mu
 		<http:request-connection protocol="HTTPS"
 			host="#[Mule::p('box.host')]" port="#[Mule::p('box.port')]">
 			<tls:context>
-				<tls:trust-store path="keystores/truststore.ts"
-					password="${secure::https.keyPassword}" type="jks" insecure="true" />
+				<tls:trust-store insecure="true" />
 			</tls:context>
 		</http:request-connection>
 	</http:request-config>
@@ -47,8 +45,7 @@ http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mu
 		<http:request-connection protocol="HTTPS"
 			host="#[Mule::p('logger.host')]" port="#[Mule::p('logger.port')]">
 			<tls:context>
-				<tls:trust-store path="keystores/truststore.ts"
-					password="${secure::https.keyPassword}" type="jks" insecure="true" />
+				<tls:trust-store insecure="true" />
 			</tls:context>
 		</http:request-connection>
 	</http:request-config>
@@ -70,8 +67,7 @@ http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mu
 		<http:request-connection protocol="HTTPS"
 			host="#[Mule::p('mft.host')]" port="#[Mule::p('mft.port')]">
 			<tls:context>
-				<tls:trust-store path="keystores/truststore.ts"
-					password="${secure::https.keyPassword}" type="jks" insecure="true" />
+				<tls:trust-store insecure="true" />
 			</tls:context>
 		</http:request-connection>
 	</http:request-config>

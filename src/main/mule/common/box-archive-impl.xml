@@ -51,7 +51,8 @@ output application/json
 ---
 {
 	"Client-ID" : p('api.client-id'),
-	"Client-Secret" : p('secure::api.client-secret')
+	"Client-Secret" : p('secure::api.client-secret'),
+	"content-type": "application/json"
 }]]]></http:headers>
 				</http:request>
 				<logger level="INFO" doc:name="Logger"
@@ -80,6 +81,13 @@ output application/json
   "targetFileLocation":  p('box.upload.targetInputFileLocation'),
   "targetFileName":  vars.fileName default "" 
 }]]]></http:body>
+					<http:headers ><![CDATA[#[output application/json
+---
+{
+	"Client-Id" : Mule::p('api.client-id'),
+ 	"Client-Secret" : Mule::p('secure::api.client-secret'),
+	"content-type": "application/json"
+}]]]></http:headers>
 				</http:request>
 				<logger level="INFO" doc:name="Logger"
 					doc:id="1a9e5c43-7737-475e-ab01-0f0dcef4eba1"
