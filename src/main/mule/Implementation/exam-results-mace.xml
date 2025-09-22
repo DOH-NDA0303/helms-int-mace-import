@@ -90,8 +90,11 @@ output application/json
 										<ee:set-payload><![CDATA[%dw 2.0
 output application/java
 ---
-vars.initialPayload]]></ee:set-payload>
+vars.initialPayload
+]]></ee:set-payload>
 									</ee:message>
+									<ee:variables >
+									</ee:variables>
 								</ee:transform>
 								<flow-ref doc:name="exam-result-salesforce-implementation-subflow"
                                     doc:id="4888f4e2-f223-45a5-868c-9ebeb06d0bfd"
@@ -159,35 +162,48 @@ output application/json
 
     <sub-flow name="exam-result-salesforce-implementation-subflow" doc:id="e6013d08-8024-4780-a893-23a1889b1a29">
         <logger level="INFO" doc:name="Logger" doc:id="c9ac6d5b-0f6e-4428-bfce-a4b7f55eafe6" message="Starting Salesforce implementation for exam result record."/>
-        
-        <ee:transform doc:name="Validations and Data Prep" doc:id="9e89cfbd-f023-40ea-afc3-cd61016b1694">
+        <set-variable value="#[[]]" doc:name="Set Variable" doc:id="c8284b40-52e3-48bb-b591-69fcfd27aa63" variableName="sfQueryResponse"/>
+		<foreach doc:name="For Each Record" doc:id="95737824-d7ae-4b30-998f-ed977a1c8237" collection="#[payload]">
+			<ee:transform doc:name="Validations and Data Prep" doc:id="9e89cfbd-f023-40ea-afc3-cd61016b1694">
             <ee:message />
             <ee:variables>
-                <ee:set-variable variableName="dob" ><![CDATA[%dw 2.0
+                <ee:set-variable variableName="dob"><![CDATA[%dw 2.0
 output application/json
 ---
-payload map ((item, index) -> {
-  BirthDate: item.BirthDate as Date {format: "yyyyMMdd"} as String {format: "yyyy-MM-dd"}
-})]]></ee:set-variable>
-                <ee:set-variable variableName="credentialNumber" ><![CDATA[%dw 2.0
+{
+  BirthDate: payload.BirthDate as Date {format: "yyyyMMdd"} as String {format: "yyyy-MM-dd"}
+}]]></ee:set-variable>
+                <ee:set-variable variableName="credentialNumber"><![CDATA[%dw 2.0
 output application/json
 import * from dw::core::Strings
 ---
-payload map ((item, index) -> {
-    "NAECredential": "NCME.ME." ++ (substringAfter(item.NAECode,'ME') default "")
-})]]></ee:set-variable>
-				<ee:set-variable variableName="examDate" ><![CDATA[%dw 2.0
+{
+  "NAECredential": "NCME.ME." ++ (substringAfter(payload.NAECode, 'ME') default "")
+}]]></ee:set-variable>
+				<ee:set-variable variableName="examDate"><![CDATA[%dw 2.0
 output application/json
 ---
-payload map ((item, index) -> {
-  examDate: item.TestDate as Date {format: "yyyyMMdd"} as String {format: "yyyy-MM-dd"}
-})]]></ee:set-variable>
+{
+  examDate: payload.TestDate as Date {format: "yyyyMMdd"} as String {format: "yyyy-MM-dd"}
+}]]></ee:set-variable>
+					<ee:set-variable variableName="status" ><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+---
+{
+  "NAECredential": if (payload.PassFail_GeneralPortion == 'P') 
+                            "Pass" 
+                        else if (payload.PassFail_GeneralPortion == 'F') 
+                            "Fail" 
+                        else 
+                            "No Show"
+}]]></ee:set-variable>
             </ee:variables>
         </ee:transform>
-        <ee:transform doc:name="SF Query for Credential Lookup" doc:id="b1f53564-ac02-4439-8de1-0c520074ddb0">
+			<ee:transform doc:name="SF Query for Credential Lookup" doc:id="b1f53564-ac02-4439-8de1-0c520074ddb0">
             <ee:message />
             <ee:variables>
-                <ee:set-variable variableName="sfQuery" ><![CDATA[%dw 2.0
+                <ee:set-variable variableName="sfQuery"><![CDATA[%dw 2.0
 output application/java
 ---
 "SELECT ID,
@@ -205,16 +221,13 @@ ExaminationDate,
 FROM 
     PersonExamination
 WHERE 
-    Credential__r.Credential_Number__r.Name = '" ++ (vars.credentialNumber[0].NAECredential splitBy '.')[2] ++ "' AND Account__r.PersonBirthdate = " ++ vars.dob[0].BirthDate ++ 
-" AND (VerificationStatus =  'Pending')
+    Credential__r.Credential_Number__r.Name = '" ++(vars.credentialNumber.NAECredential splitBy '.')[2] ++ "' AND Account__r.PersonBirthdate = " ++ vars.dob.BirthDate ++ 
+" AND (VerificationStatus = 'Pending')
   AND (Credential__r.Status = 'Pending') LIMIT 100"]]></ee:set-variable>
             </ee:variables>
         </ee:transform>
-        <logger level="INFO" doc:name="Logger" doc:id="0ebb1b32-d109-4756-a6e6-a539c70318e1"
-            message="SF Query for Credential lookup: #[vars.sfQuery]" />
-        <http:request method="POST" doc:name="Salesforce Query Sapi"
-            doc:id="eefad0ca-3dd4-44bf-9eb0-68c524a4a1fe" path="#[Mule::p('salesforce.querypath')]" responseTimeout="300000"
-            target="sfQueryResponse" config-ref="HTTP_Req_config_SFDC">
+			<logger level="INFO" doc:name="Logger" doc:id="0ebb1b32-d109-4756-a6e6-a539c70318e1" message="SF Query for Credential lookup: #[vars.sfQuery]" />
+			<http:request method="POST" doc:name="Salesforce Query Sapi" doc:id="eefad0ca-3dd4-44bf-9eb0-68c524a4a1fe" path="#[Mule::p('salesforce.querypath')]" responseTimeout="300000" target="sfQueryResponse" config-ref="HTTP_Req_config_SFDC">
             <http:body><![CDATA[#[%dw 2.0
 output application/json
 ---
@@ -229,46 +242,49 @@ output application/json
 	"content-type": "application/json"
 }]]]></http:headers>
         </http:request>
-        <ee:transform doc:name="SF Credential LookUp Response" doc:id="b11ec29b-f368-4c5d-9d72-4e8102206b90">
+			<ee:transform doc:name="SF Credential LookUp Response" doc:id="b11ec29b-f368-4c5d-9d72-4e8102206b90">
             <ee:message />
             <ee:variables>
-                <ee:set-variable variableName="sfQueryResponse" ><![CDATA[%dw 2.0
+                <ee:set-variable variableName="sfQueryResponse"><![CDATA[%dw 2.0
 output application/json
 ---
 vars.sfQueryResponse map ((item, index) -> {
-    "Id": item.Id,
+   "Id": item.Id,
     "CredentialId": item.Credential__r.Id,
     "status": item.VerificationStatus,
     "name": item.Credential__r.Name,
-    "examDate": item.ExaminationDate,
+    "examDate": item.ExaminationDat,
     "examName": item.Name_of_Exam__c
-    //"LastDateOfContact_SF": item.Credential__r.Last_Date_Of_Contact__c,
 } ++ (vars.originalRecord default {}) )]]></ee:set-variable>
             </ee:variables>
         </ee:transform>
-        <logger level="INFO" doc:name="Logger" doc:id="9852f6b2-3d19-422e-bd6e-47ddae68f28a"
-            message="Credential lookup response: #[vars.sfQueryResponse]" />
+			<logger level="INFO" doc:name="Logger" doc:id="9852f6b2-3d19-422e-bd6e-47ddae68f28a" message="Credential lookup response: #[vars.sfQueryResponse]" />
+			<flow-ref doc:name="Flow Reference" doc:id="f32fe7b9-7c48-4219-a8c7-ebe6d00db189" name="sf-results-update-Sub_Flow" />
+		</foreach>
+		<logger level="DEBUG" doc:name="Log Info: End" doc:id="430f73dc-e456-4a4f-bfb2-a5f2edaa5d5f" message='#[output application/json&#10;---&#10;{&#10;	"message": "Response from Exception Log",&#10;	"payload": vars.SFExceptionResponse&#10;}]' category="com.helms.examschedule" />
+    </sub-flow>
 
-        <choice doc:name="Matching Record Check" doc:id="aefa6f8c-63fa-4a72-bbe6-5437de3fc6cc">
-            <when expression="#[!isEmpty(vars.sfQueryResponse)]">
-				<foreach doc:name="For Each Credential Result" doc:id="f68c14fa-efc2-422f-ac59-4471effe8970" collection="#[vars.sfQueryResponse]" >
-					<logger level="INFO" doc:name="Logger" doc:id="19c9f84d-0021-4b26-8907-ed03f442ce89" message="Before validation for exam result update." />
-					<ee:transform doc:name="Validations for Update" doc:id="2ec414ab-a177-4fc8-98bb-d332399746f2" >
+    <sub-flow name="sf-results-update-Sub_Flow" doc:id="05802095-5674-43d7-b691-9c66b2cfd226" >
+		<choice doc:name="Matching Record Check" doc:id="5e66f195-1d0d-4de1-a32d-f39e6bc3b9e1" >
+			<when expression="#[!isEmpty(vars.sfQueryResponse)]" >
+				<foreach doc:name="For Each Credential Result" doc:id="47801be9-2d09-4443-b5fa-3cfe1b468489" collection="#[vars.sfQueryResponse]" >
+					<logger level="INFO" doc:name="Logger" doc:id="c1741734-05df-4fc7-81c5-541fa5d7f3f9" message="Before validation for exam result update." />
+					<ee:transform doc:name="Validations for Update" doc:id="158e8f0a-6bc2-4c07-bc2c-a3bb4f29631b" >
 						<ee:message />
 						<ee:variables >
-							<ee:set-variable variableName="status" ><![CDATA[%dw 2.0
-output application/json
----
-payload.status]]></ee:set-variable>
 							<ee:set-variable variableName="credential" ><![CDATA[%dw 2.0
 output application/json
 ---
 payload.CredentialId]]></ee:set-variable>
+							<ee:set-variable variableName="verificationStatus" ><![CDATA[%dw 2.0
+output application/java
+---
+payload.status]]></ee:set-variable>
 						</ee:variables>
 					</ee:transform>
-					<choice doc:name="Validation Check for Credential, Status, Exam &amp; Title" doc:id="e140f437-6f2a-45f9-aeb2-2a32b11ef428" >
-						<when expression="#[!isEmpty(vars.credential) and (vars.status =='Pending')]" >
-							<ee:transform doc:name="Payload for Update" doc:id="2527b714-cee8-4d4a-836b-72a7ace91ca1" >
+					<choice doc:name="Validation Check for Credential, Status, Exam &amp; Title" doc:id="7eea0ea7-cfcd-4114-9e0d-ea03a1b47537" >
+						<when expression="#[!isEmpty(vars.credential) and (vars.verificationStatus =='Pending')]" >
+							<ee:transform doc:name="Payload for Update" doc:id="637a2fe5-9fbc-4c41-8c43-6d61603288c2" >
 								<ee:message />
 								<ee:variables >
 									<ee:set-variable variableName="SFExamResultRequest" ><![CDATA[%dw 2.0
@@ -276,16 +292,15 @@ output application/json
 ---
 [{
 	"Id": payload.Id,
-	"VerificationStatus": if(vars.initialPayload[0].PassFail_GeneralPortion == 'P') "Pass" else if(vars.initialPayload[0].PassFail_GeneralPortion == 'F') "Fail" else "No Show",
-	//"ExaminationDate": vars.ExamDate[0].examDate as Date {format: "yyyy-MM-dd"} at "UTC") as DateTime {format: "yyyy-MM-dd'T'00:00:00.000'Z'"},
+	"VerificationStatus": vars.status.NAECredential,
 	"Notes_Comments__c": now() as Date as String ++ ' ' ++ '-' ++ ' ' ++ "Exam Result added by AutoUpdate process",
 	"Credential__c": vars.credential
 	
 }]]]></ee:set-variable>
 								</ee:variables>
 							</ee:transform>
-							<logger level="INFO" doc:name="Logger" doc:id="6ceee336-8881-4cb5-b77c-afb9222eb816" message="SF update request payload: #[vars.SFExamResultRequest]" />
-							<http:request method="POST" doc:name="Sf Exam result update to PE" doc:id="a2eff8e6-e7a0-40e9-b23e-a40d7220ff82" config-ref="HTTP_Req_config_SFDC" path="#[Mule::p('salesforce.upsertpath')]" responseTimeout="300000" target="SFExamResultResponse" >
+							<logger level="INFO" doc:name="Logger" doc:id="37e856b1-d488-4ca1-895a-4a85fab8ee95" message="SF update request payload: #[vars.SFExamResultRequest]" />
+							<http:request method="POST" doc:name="Sf Exam result update to PE" doc:id="884396c9-19b4-467d-ad47-388d6fb48503" config-ref="HTTP_Req_config_SFDC" path="#[Mule::p('salesforce.upsertpath')]" responseTimeout="300000" target="SFExamResultResponse" >
 								<http:body ><![CDATA[#[%dw 2.0
 output application/json
 ---
@@ -306,13 +321,13 @@ vars.SFExamResultRequest]]]></http:body>
 	"object": "PersonExamination"
 }]]]></http:query-params>
 							</http:request>
-							<logger level="INFO" doc:name="Logger1" doc:id="8fe3e477-9faf-4887-ade3-409cc687bd77" message="Exam result was updated: #[vars.SFExamResultResponse]" />
-							<choice doc:name="If validation not matched/ status fail or no show" doc:id="8bcab992-bd1c-4edf-bda7-2c540cb8bb1d" >
+							<logger level="INFO" doc:name="Logger1" doc:id="26450fa4-ff78-4440-a641-cff58f1d861c" message="Exam result was updated: #[vars.SFExamResultResponse]" />
+							<choice doc:name="If validation not matched/ status fail or no show" doc:id="38bf5bc9-cfb4-4849-9e14-0c202b56fb9d" >
 								<when expression="#[vars.SFExamResultRequest[0].VerificationStatus == 'Pass']" >
-									<logger level="INFO" doc:name="Logger" doc:id="29995331-2a5c-41be-8ab8-02248700e3ca" message="Status is PASS updated to SF, not creating exception log." />
+									<logger level="INFO" doc:name="Logger" doc:id="d66e54b3-72d3-4f29-9d0c-ecf69fc92bf6" message="Status is PASS updated to SF, not creating exception log." />
 								</when>
 								<otherwise >
-									<ee:transform doc:name="SF Query to Get Count of failed data in PE" doc:id="3ec758db-8ad2-43b4-adc2-9f76b725ccc2" >
+									<ee:transform doc:name="SF Query to Get Count of failed data in PE" doc:id="e6966e2e-ca97-454b-a236-f2f36be7a423" >
 										<ee:message />
 										<ee:variables >
 											<ee:set-variable variableName="sfFailCountQuery" ><![CDATA[%dw 2.0
@@ -320,11 +335,11 @@ output application/json
 ---
 "SELECT COUNT(Id) FROM PersonExamination " ++
 "WHERE (VerificationStatus = 'Fail' OR VerificationStatus = 'No Show') " ++
-"AND Credential__r.Name = '" ++ (vars.credentialNumber[0].NAECredential as String default '') ++ "' "]]></ee:set-variable>
+"AND Credential__r.Name = '" ++ (vars.credentialNumber[0] as String default '') ++ "' "]]></ee:set-variable>
 										</ee:variables>
 									</ee:transform>
-									<logger level="INFO" doc:name="Logger" doc:id="738dfa15-a6df-4f35-bd3d-e4799c9d5130" message="SF Query to Get Count of failed data in PE: #[vars.sfFailCountQuery]" />
-									<http:request method="POST" doc:name="Salesforce Query Sapi (Count)" doc:id="e17370d2-3778-42dc-8417-0d09c465fd16" config-ref="HTTP_Req_config_SFDC" path="#[Mule::p('salesforce.querypath')]" responseTimeout="300000" target="sfFailCountQueryResponse" >
+									<logger level="INFO" doc:name="Logger" doc:id="9fd00891-84bb-48b0-a04a-3c52c7ac775d" message="SF Query to Get Count of failed data in PE: #[vars.sfFailCountQuery]" />
+									<http:request method="POST" doc:name="Salesforce Query Sapi (Count)" doc:id="c6956b77-967c-4d39-b6e2-29694e82f47c" config-ref="HTTP_Req_config_SFDC" path="#[Mule::p('salesforce.querypath')]" responseTimeout="300000" target="sfFailCountQueryResponse" >
 										<http:body ><![CDATA[#[%dw 2.0
 output application/json
 ---
@@ -339,8 +354,8 @@ output application/json
 	"content-type": "application/json"
 }]]]></http:headers>
 									</http:request>
-									<logger level="INFO" doc:name="Logger1" doc:id="f1b00d78-7309-4c02-a3b6-38af1466e517" message="Count of authorized records for fail/no show: #[vars.sfFailCountQueryResponse.expr0]" />
-									<ee:transform doc:name="New Authorisation for failed/No Show Payload" doc:id="913cc1a3-daa7-4569-8bd3-3fedf736a4ad" >
+									<logger level="INFO" doc:name="Logger1" doc:id="f3209d29-7251-4909-8c2c-cf4c50eaa0d1" message="Count of authorized records for fail/no show: #[vars.sfFailCountQueryResponse.expr0]" />
+									<ee:transform doc:name="New Authorisation for failed/No Show Payload" doc:id="c1994005-082c-41f4-acae-af2807a2ac81" >
 										<ee:message />
 										<ee:variables >
 											<ee:set-variable variableName="sfFailRequest" ><![CDATA[%dw 2.0
@@ -357,10 +372,10 @@ else []
 ]]></ee:set-variable>
 										</ee:variables>
 									</ee:transform>
-									<choice doc:name="Choice" doc:id="d901d573-1ea8-40c4-80e6-d981b0bd800a" >
+									<choice doc:name="Choice" doc:id="21837522-aace-424c-be4c-6da1ba8e6e39" >
 										<when expression="#[!isEmpty(vars.sfFailRequest)]" >
-											<logger level="INFO" doc:name="Logger" doc:id="c3359773-d5df-4a8c-bed4-7f1634b992b1" message="New failed exam result request for creation: #[payload]" />
-											<http:request method="POST" doc:name="Sf Exam Result Create" doc:id="ada36347-9cf0-4466-b8ef-eba4a4093e9e" config-ref="HTTP_Req_config_SFDC" path="#[Mule::p('salesforce.createpath')]" responseTimeout="300000" target="SFFailCreateResponse" >
+											<logger level="INFO" doc:name="Logger" doc:id="ee69574c-6e7b-4198-ba30-46f23da13e4c" message="New failed exam result request for creation: #[payload]" />
+											<http:request method="POST" doc:name="Sf Exam Result Create" doc:id="8d67bf04-1e2b-4b63-89a2-071eead516af" config-ref="HTTP_Req_config_SFDC" path="#[Mule::p('salesforce.createpath')]" responseTimeout="300000" target="SFFailCreateResponse" >
 												<http:body ><![CDATA[#[%dw 2.0
 output application/json
 ---
@@ -383,11 +398,11 @@ vars.sfFailRequest]]]></http:body>
 											</http:request>
 										</when>
 										<otherwise >
-											<logger level="INFO" doc:name="Logger" doc:id="848fc80c-c6b3-4859-952c-1cfaec7fd141" message="Count of authorized records: #[vars.sfFailCountQueryResponse.expr0], hence not creating any new, need manual intervention (Max attempts reached)." />
-											<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;"Max attempts reached for the exam."]' doc:name="validationErrorMessage" doc:id="e4aa64a5-238d-42a1-834c-a05cc8caa90b" variableName="validationErrorMessage" />
-											<flow-ref doc:name="exception-impl-subFlow" doc:id="7f4609f0-c407-42b2-a5ec-11ccf96782b6" name="exception-impl-subFlow" />
-											<http:request method="POST" doc:name="Send Email" doc:id="c52b3e46-6010-454f-a610-42f344f5cc90" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]">
-										<http:body><![CDATA[#[%dw 2.0
+											<logger level="INFO" doc:name="Logger" doc:id="636b2265-5b98-431c-8606-4aae460288f5" message="Count of authorized records: #[vars.sfFailCountQueryResponse.expr0], hence not creating any new, need manual intervention (Max attempts reached)." />
+											<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;"Max attempts reached for the exam."]' doc:name="validationErrorMessage" doc:id="df303427-4a0c-493a-aeb9-389ca4ccbf41" variableName="validationErrorMessage" />
+											<flow-ref doc:name="exception-impl-subFlow" doc:id="3c413a6c-4cf3-4681-8185-60316c5aae71" name="exception-impl-subFlow" />
+											<http:request method="POST" doc:name="Send Email" doc:id="2e75f89a-babd-4b39-8694-8fc7f965a513" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]" >
+												<http:body ><![CDATA[#[%dw 2.0
 output application/json
 ---
 {
@@ -408,23 +423,23 @@ output application/json
   "messageType": p('logger.messageTypeEmail')
   
 }]]]></http:body>
-										<http:headers><![CDATA[#[output application/json
+												<http:headers ><![CDATA[#[output application/json
 ---
 {
 	"Client-ID" : p('api.client-id'),
 	"Client-Secret" : p('secure::api.client-secret'),
 	"content-type" : "application/json"
 }]]]></http:headers>
-									</http:request>
+											</http:request>
 										</otherwise>
 									</choice>
-									<logger level="INFO" doc:name="Logger2" doc:id="5c2fd021-bbad-4b11-8d23-759702a5175a" message="New authorized Failed/No show Record was created: #[vars.SFFailCreateResponse]" />
+									<logger level="INFO" doc:name="Logger2" doc:id="68b1de29-abd4-4edd-a2ea-9ced8160938a" message="New authorized Failed/No show Record was created: #[vars.SFFailCreateResponse]" />
 								</otherwise>
 							</choice>
-							<logger level="INFO" doc:name="Logger2" doc:id="2921ebee-f4df-4bf8-963b-d0f7a20e176b" message="Exam result processing completed for current record." />
+							<logger level="INFO" doc:name="Logger2" doc:id="2fe7ebc2-e03c-4242-a4fe-96f3ea31f8bd" message="Exam result processing completed for current record." />
 						</when>
 						<otherwise >
-							<ee:transform doc:name="Error Message for Validation" doc:id="7c32941e-d210-4375-bd76-0d23972e35a4" >
+							<ee:transform doc:name="Error Message for Validation" doc:id="849a0d5a-dfef-4d6f-833f-0240cba99eb3" >
 								<ee:message />
 								<ee:variables >
 									<ee:set-variable variableName="credentialValidationMessage" ><![CDATA[
@@ -436,9 +451,9 @@ else "No Pending/Authorized HELMS Exam for matching Credential and DOB"
 ]]></ee:set-variable>
 								</ee:variables>
 							</ee:transform>
-							<flow-ref doc:name="exception-impl-subFlow" doc:id="c07fa2a3-f3f1-489d-bb87-a555969d65ff" name="exception-impl-subFlow" />
-							<http:request method="POST" doc:name="Send Email" doc:id="839dadd4-3abb-45f7-92df-73b23f7beb97" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]">
-						<http:body><![CDATA[#[%dw 2.0
+							<flow-ref doc:name="exception-impl-subFlow" doc:id="c8191310-ce1a-4b4e-b645-e37ff59331eb" name="exception-impl-subFlow" />
+							<http:request method="POST" doc:name="Send Email" doc:id="505a643a-b6c1-4c1e-87d3-becbc185b3c8" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]" >
+								<http:body ><![CDATA[#[%dw 2.0
 output application/json
 ---
 {
@@ -459,34 +474,33 @@ output application/json
   "messageType": p('logger.messageTypeEmail')
   
 }]]]></http:body>
-						<http:headers><![CDATA[#[output application/json
+								<http:headers ><![CDATA[#[output application/json
 ---
 {
 	"Client-ID" : p('api.client-id'),
 	"Client-Secret" : p('secure::api.client-secret'),
 	"content-type" : "application/json"
 }]]]></http:headers>
-					</http:request>
+							</http:request>
 						</otherwise>
 					</choice>
-					<logger level="INFO" doc:name="Logger1" doc:id="8223ec36-1ed8-4fc5-a00d-66afdb99fddd" message="Finished processing one credential result." />
+					<logger level="INFO" doc:name="Logger1" doc:id="791bf543-aca3-42e8-82eb-bd5473b6dd45" message="Finished processing one credential result." />
 				</foreach>
-
-            </when>
-            <otherwise>
-                <ee:transform doc:name="Error Message for Non-Match" doc:id="f9834291-323e-431a-b092-3137a5be76f8">
-                    <ee:message />
-                    <ee:variables>
-                        <ee:set-variable variableName="validationErrorMessage"><![CDATA[%dw 2.0
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Error Message for Non-Match" doc:id="c60d5cfb-f539-4b93-91bb-5ff5ff087ee6" >
+					<ee:message />
+					<ee:variables >
+						<ee:set-variable variableName="validationErrorMessage" ><![CDATA[%dw 2.0
 output application/json
 ---
 if (isEmpty(vars.sfQueryResponse)) "No Matching HELMS Credential or Pending Exam Found"
 else "Credential not in Pending/Authorized status"
 ]]></ee:set-variable>
-                    </ee:variables>
-                </ee:transform>
-                <flow-ref doc:name="exception-impl-subFlow" doc:id="3bc81e75-e73e-43ce-8004-81ffdde836cb" name="exception-impl-subFlow" />
-				<http:request method="POST" doc:name="Send Email" doc:id="2d1cc8c4-43fa-47b1-a0d4-7ad2aed78f77" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]" >
+					</ee:variables>
+				</ee:transform>
+				<flow-ref doc:name="exception-impl-subFlow" doc:id="efdbc74e-2812-496a-8b1e-d9bc28e039fd" name="exception-impl-subFlow" />
+				<http:request method="POST" doc:name="Send Email" doc:id="7a793014-1ed6-4913-bebc-cf3a984de2d7" config-ref="HTTP_Req_config_LOGGER" path="#[Mule::p('logger.path')]" >
 					<http:body ><![CDATA[#[%dw 2.0
 output application/json
 ---
@@ -516,11 +530,10 @@ output application/json
 	"content-type" : "application/json"
 }]]]></http:headers>
 				</http:request>
-            </otherwise>
-        </choice>
-    </sub-flow>
-
-    <sub-flow name="exception-impl-subFlow" doc:id="7a65d6dc-be10-4da5-9709-641e18226167">
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="exception-impl-subFlow" doc:id="7a65d6dc-be10-4da5-9709-641e18226167">
         <logger level="INFO" doc:name="Logger" doc:id="f676c563-4021-4bfc-b98b-63d06f8713bd"
             message="Validation failed: ExamName: #[vars.examNameValidation], Credential: #[vars.credentialValidation], Title: #[vars.titleValidation], VerificationStatus: #[vars.verificationStatus]. Error: #[vars.validationErrorMessage]" />
         <ee:transform doc:name="Exception Create Payload" doc:id="432415f2-a49a-484b-a3a6-bd6231dd0444">

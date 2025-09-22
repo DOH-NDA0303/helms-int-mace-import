@@ -1,8 +1,11 @@
 %dw 2.0
-import substring, isNumeric from dw::core::Strings
 output application/json
+import * from dw::core::Strings
 ---
-payload.fileContent splitBy "\n" map ((item, index) -> {
+(payload.fileContent replace "\r\n" with "\n") 
+splitBy "\n" 
+filter (!isEmpty($))
+map ((item, index) -> {
     SSN: trim(substring(item, 0, 10)),
     LastName: trim(substring(item, 10, 30)),
     FirstName: trim(substring(item, 30, 50)),
@@ -33,5 +36,5 @@ payload.fileContent splitBy "\n" map ((item, index) -> {
     Filler: trim(substring(item, 255, 260)),
     WrittenExamDate: trim(substring(item, 260, 268)),
     FileGeneratedDate: trim(substring(item, 268, 276)),
-    NAECode: (trim(substring(item, 276, 286)))
+    NAECode: trim(substring(item, 276, 286))
 })

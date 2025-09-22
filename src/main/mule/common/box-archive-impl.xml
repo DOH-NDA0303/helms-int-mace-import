@@ -96,41 +96,4 @@ output application/json
 </otherwise>
 		</choice>
 	</sub-flow>
-	<sub-flow name="box-error-output-archive-subflow"
-		doc:id="a1267052-a5d2-4e6d-b33c-7f464f4479a2">
-		<choice doc:name="Choice"
-			doc:id="8db2b9ad-6c92-4e0d-a881-1f7144f411cd">
-			<when expression="#[!isEmpty(payload)]">
-				<http:request method="POST" doc:name="Box Input Upload"
-					doc:id="1163e1ca-91e4-4f3b-af2b-a2330ece64e3"
-					config-ref="HTTP_Req_config_BOX" path="#[Mule::p('box.path')]"
-					responseTimeout="300000">
-					<http:body><![CDATA[#[%dw 2.0
-output application/json
----
-{
-  "action": p('box.upload.action'),
-  "applicationName": p('box.upload.applicationName'),
-  "fileContent": vars.errorFile,
-  "sourceFileLocation": "",
-  "sourceFileName": "",
-  "targetFileLocation":  p('box.upload.targetFileLocation'),
-  "targetFileName":  vars.fileName default"" ++ ".Error"
-}]]]></http:body>
-					<http:headers><![CDATA[#[output application/json
----
-{
-	"Client-ID" : p('api.client-id'),
-	"Client-Secret" : p('secure::api.client-secret'),
-	"content-type" : "application/json"
-}]]]></http:headers>
-				</http:request>
-			</when>
-			<otherwise>
-				<logger level="INFO" doc:name="Logger"
-					doc:id="8c2cffd2-fc12-419b-b5db-21522f3aa06a"
-					message="No Input file data for archive in Box" />
-			</otherwise>
-		</choice>
-	</sub-flow>
 </mule>
